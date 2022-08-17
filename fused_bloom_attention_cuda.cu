@@ -115,16 +115,11 @@ void fused_forward(
     std::cout<<"5"<<std::endl;
     std::cout<<"Reshapes done"<<std::endl;
 
-    const auto past_key = layer_past_key;
-    const auto past_value = layer_past_value;
-    key_layer = at::cat({past_key, key_layer}, 2);
-    value_layer = at::cat({past_value, value_layer}, 1);
+    layer_past_key = at::cat({layer_past_key, key_layer}, 2);
+    layer_past_value = at::cat({layer_past_value, value_layer}, 1);
     std::cout<<"Cat done"<<std::endl;
 
-    at::Tensor present_key;
-    at::Tensor present_value;
-
-    auto attention_scores = alibi.baddbmm(query_layer, key_layer, beta, inv_norm_factor);
+    auto attention_scores = alibi.baddbmm(query_layer, layer_past_key, beta, inv_norm_factor);
     std::cout<<"baddmm done"<<std::endl;
 
     if (true) {
@@ -135,7 +130,7 @@ void fused_forward(
         // TODO @thomas21: change by to this as it's cleaner when pytorch 1.13 comes out
         // DISPATCH_CASE_FLOATING_TYPES(key_layer.scalar_type(), "masked_softmax", [&] {
 	    std::cout<<"kernel launch"<<std::endl;
-        AT_DISPATCH_FLOATING_TYPES_AND2(at::ScalarType::Half, at::ScalarType::BFloat16, key_layer.scalar_type(), "masked_softmax", [&] {
+        AT_DISPATCH_FLOATING_TYPES_AND2(at::ScalarType::Half, at::ScalarType::BFloat16, layer_past_key.scalar_type(), "masked_softmax", [&] {
             // TODO @thomasw21 I think this is necessary if you want to support all kinds of gpus.
             // const uint64_t maxGridY = at::cuda::getCurrentDeviceProperties()->maxGridSize[1];
 
@@ -195,7 +190,7 @@ void fused_forward(
     }
     std::cout<<"kernel launch done"<<std::endl;
 
-    context_layer = attention_probs.bmm(value_layer);
+    context_layer = attention_probs.bmm(layer_past_value);
 
     std::cout<<"bmm done"<<std::endl;
     // `_merge_heads`

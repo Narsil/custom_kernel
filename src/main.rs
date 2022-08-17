@@ -39,4 +39,10 @@ fn main() {
             attention_probs.as_mut_ptr(),
         );
     }
+    println!("context {context_layer:?}");
+    println!("attention_probs {attention_probs:?}");
+    println!("past_key {past_key:?}");
+    println!("past_value {past_value:?}");
+    println!("context {:?}", Vec::<f64>::from(context_layer));
+    println!("attention probs {:?}", Vec::<f64>::from(attention_probs));
 }
